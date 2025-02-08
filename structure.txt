@@ -1,0 +1,40 @@
+com.crypto.wallet
+├── client
+│   ├── ClientMain.java            // Entry point for the client app (handles user input/output)
+│   └── CommandParser.java         // Parses user input into commands for the server
+│
+├── server
+│   ├── ServerMain.java            // Entry point for the server; sets up the server socket and uses ExecutorService with virtual threads
+│   │
+│   ├── connection                 // Handles client connections
+│   │   └── ClientHandler.java     // Processes a single client connection using blocking I/O on a virtual thread
+│   │
+│   ├── commands                   // Implements the Command pattern to encapsulate each client request
+│   │   ├── Command.java               // Interface with an execute() method for all commands
+│   │   ├── CommandFactory.java        // Maps input strings to concrete Command objects (avoiding many if/else statements)
+│   │   ├── RegisterCommand.java       // Processes user registration requests
+│   │   ├── LoginCommand.java          // Processes login requests
+│   │   ├── DepositMoneyCommand.java   // Processes deposit money requests
+│   │   ├── BuyCommand.java            // Processes cryptocurrency purchase requests
+│   │   ├── SellCommand.java           // Processes cryptocurrency sale requests
+│   │   ├── GetWalletSummaryCommand.java       // Returns the current state of a wallet
+│   │   └── GetWalletOverallSummaryCommand.java  // Returns the overall profit/loss summary
+│   │
+│   ├── models                     // Domain models representing the core data of the system
+│   │   ├── User.java                // Contains username, hashed password, etc.
+│   │   ├── Wallet.java              // Contains balance and current investments
+│   │   ├── Transaction.java         // Represents a single transaction (deposit, buy, sell)
+│   │   └── CryptoOffering.java      // **Record**: Immutable representation of a cryptocurrency asset (from CoinAPI)
+│   │
+│   ├── services                   // Business logic layer applying SOLID principles
+│   │   ├── UserService.java         // Handles registration, login, and other user-related operations
+│   │   ├── WalletService.java       // Processes deposits, buys, sells, and generates wallet summaries
+│   │   ├── CoinAPIService.java      // Makes HTTP calls to CoinAPI for crypto data
+│   │   └── CachedCoinAPIService.java// Wraps CoinAPIService with a 30-minute caching mechanism
+│   │
+│   ├── persistence                // Manages data persistence (reading/writing JSON files)
+│   │   └── Storage.java             // Uses Gson or Jackson to handle JSON persistence of user and wallet data
+│   │
+│   └── utils                      // Shared utilities for configuration and logging
+│       ├── Config.java              // Singleton that loads configuration (.env variables, API key, etc.)
+│       └── Logger.java              // Utility for logging errors (writes technical details and stack traces to a log file)
