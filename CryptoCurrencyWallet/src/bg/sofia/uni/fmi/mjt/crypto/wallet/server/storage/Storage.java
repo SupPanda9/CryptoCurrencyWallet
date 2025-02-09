@@ -18,14 +18,6 @@ public class Storage {
     private static final String USERS_FILE = "users.json";
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-    public static synchronized void saveUsers(Map<String, User> users) {
-        try (FileWriter writer = new FileWriter(USERS_FILE)) {
-            GSON.toJson(users, writer);
-        } catch (IOException e) {
-            System.err.println("Error saving users: " + e.getMessage());
-        }
-    }
-
     public static synchronized Map<String, User> loadUsers() {
         if (!Files.exists(Path.of(USERS_FILE))) {
             return new ConcurrentHashMap<>();
@@ -37,6 +29,14 @@ public class Storage {
         } catch (IOException e) {
             System.err.println("Error loading users: " + e.getMessage());
             return new ConcurrentHashMap<>();
+        }
+    }
+
+    public static synchronized void saveUsers(Map<String, User> users) {
+        try (FileWriter writer = new FileWriter(USERS_FILE)) {
+            GSON.toJson(users, writer);
+        } catch (IOException e) {
+            System.err.println("Error saving users: " + e.getMessage());
         }
     }
 }

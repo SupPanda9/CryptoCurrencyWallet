@@ -1,12 +1,15 @@
 package bg.sofia.uni.fmi.mjt.crypto.wallet.server.services;
 
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.models.User;
+import bg.sofia.uni.fmi.mjt.crypto.wallet.server.models.Wallet;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.storage.Storage;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
 
 public class UserService {
@@ -26,11 +29,14 @@ public class UserService {
 
     public synchronized boolean register(String username, String password) {
         if (users.containsKey(username)) {
-            return false; // User already exists
+            return false;
         }
 
         String hashedPassword = hashPassword(password);
-        users.put(username, new User(username, hashedPassword));
+        Wallet emptyWallet = new Wallet(0.0, new HashMap<>(), new ArrayList<>());
+
+        users.put(username, new User(username, hashedPassword, emptyWallet));
+        System.out.println("Saving new user: " + username); // 🔍 Debug log
         Storage.saveUsers(users);
         return true;
     }

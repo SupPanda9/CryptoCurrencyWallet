@@ -4,6 +4,7 @@ import bg.sofia.uni.fmi.mjt.crypto.wallet.server.commands.CommandFactory;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.connection.ClientHandler;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.services.CachedCoinAPIService;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.services.CoinAPIService;
+import bg.sofia.uni.fmi.mjt.crypto.wallet.server.services.WalletService;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -18,7 +19,8 @@ public class ServerMain {
 
     public static void main(String[] args) {
         CachedCoinAPIService cachedCoinAPIService = new CachedCoinAPIService(new CoinAPIService());
-        CommandFactory commandFactory = new CommandFactory(cachedCoinAPIService);
+        WalletService walletService = WalletService.getInstance();
+        CommandFactory commandFactory = new CommandFactory(cachedCoinAPIService, walletService);
 
         try (ServerSocket serverSocket = new ServerSocket(PORT);
              ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {

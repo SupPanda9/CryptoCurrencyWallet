@@ -19,7 +19,15 @@ public class RegisterCommand implements Command {
 
     @Override
     public String execute() {
+        System.out.println("Executing register command for user: " + username); // 🔍 Debug log
+
         boolean success = userService.register(username, password);
-        return success ? "Registration successful!" : "Username already exists.";
+        if (success) {
+            System.out.println("User registered successfully: " + username); // 🔍 Debug log
+            return "Registration successful!";
+        } else {
+            System.out.println("Registration failed: user " + username + " already exists."); // 🔍 Debug log
+            return "Username already taken. Try another one.";
+        }
     }
 }

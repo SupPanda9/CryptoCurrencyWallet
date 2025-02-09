@@ -17,15 +17,21 @@ public class CachedCoinAPIService {
 
     public CachedCoinAPIService(CoinAPIService coinAPIService) {
         this.coinAPIService = coinAPIService;
-        this.lastFetchTime = Instant.EPOCH;  // Ensures first call fetches from API
+        this.lastFetchTime = Instant.EPOCH;
     }
 
     public List<CryptoOffering> getCryptoOfferings() throws IOException {
-        if (isCacheValid()) {
-            return cachedOfferings;
+        lock.readLock().lock();
+        try {
+            boolean validCache = isCacheValid();
+            System.out.println("Cache valid? " + validCache + " | Last fetch: " + lastFetchTime);
+            if (validCache) {
+                return cachedOfferings;
+            }
+        } finally {
+            lock.readLock().unlock();
         }
 
-        System.out.println("Cache expired. Fetching new data from CoinAPI...");
         return refreshCache();
     }
 
@@ -42,15 +48,22 @@ public class CachedCoinAPIService {
     private List<CryptoOffering> refreshCache() throws IOException {
         lock.writeLock().lock();
         try {
-            if (!isCacheValid()) {
+            System.out.println("Fetching fresh crypto offerings from CoinAPI...");
+            try {
                 List<CryptoOffering> offerings = coinAPIService.fetchAllCryptoOfferings();
                 cachedOfferings = sortOfferingsByVolume(offerings);
                 lastFetchTime = Instant.now();
+
+                if (!cachedOfferings.isEmpty()) {
+                    System.out.println("Cached " + cachedOfferings.size() + " crypto offerings.");
+                } else {
+                    System.out.println("ERROR: No offerings fetched!");
+                }
+                return cachedOfferings;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // Restore the interrupted status
+                throw new IOException("Thread interrupted while fetching crypto data", e);
             }
-            return cachedOfferings;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("Operation interrupted while fetching crypto offerings.", e);
         } finally {
             lock.writeLock().unlock();
         }
