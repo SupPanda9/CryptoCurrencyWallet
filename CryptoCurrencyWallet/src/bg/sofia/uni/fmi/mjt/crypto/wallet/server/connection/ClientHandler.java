@@ -16,10 +16,13 @@ public class ClientHandler implements Runnable {
 
     private static final Map<String, String> LOGGED_USERS = new ConcurrentHashMap<>();
     private final Socket clientSocket;
+    private final CommandFactory commandFactory;
     private String username = null;
+    private static final String END_OF_RESPONSE = "<END_OF_RESPONSE>";
 
-    public ClientHandler(Socket clientSocket) {
+    public ClientHandler(Socket clientSocket, CommandFactory commandFactory) {
         this.clientSocket = clientSocket;
+        this.commandFactory = commandFactory;
     }
 
     @Override
@@ -30,7 +33,6 @@ public class ClientHandler implements Runnable {
              PrintWriter writer = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream()), true)) {
 
             writer.println("Welcome to the Crypto Wallet Server!");
-
             handleClientCommands(reader, writer);
 
         } catch (IOException e) {
@@ -46,6 +48,8 @@ public class ClientHandler implements Runnable {
             input = input.strip();
             if (input.equalsIgnoreCase("exit")) {
                 writer.println("Goodbye!");
+                writer.println(END_OF_RESPONSE);
+                writer.flush();
                 break;
             }
 
@@ -54,8 +58,13 @@ public class ClientHandler implements Runnable {
             }
 
             if (!input.startsWith("login")) {
-                Command command = CommandFactory.createCommand(input, isLoggedIn(), username);
-                writer.println(command.execute());
+                Command command = commandFactory.createCommand(input, isLoggedIn(), username);
+                String response = command.execute();
+                System.out.println("Sending response to client: \n" + response); // 🔍 Debug log
+
+                writer.println(response);
+                writer.println(END_OF_RESPONSE);
+                writer.flush();
             }
         }
     }
@@ -65,20 +74,27 @@ public class ClientHandler implements Runnable {
 
         if (LOGGED_USERS.containsKey(attemptedUsername)) {
             writer.println("User is already logged in from another session.");
+            writer.println(END_OF_RESPONSE);
+            writer.flush();
+
             return false;
         }
 
-        Command command = CommandFactory.createCommand(input, isLoggedIn(), username);
+        Command command = commandFactory.createCommand(input, isLoggedIn(), username);
         String response = command.execute();
 
         if (response.startsWith("Login successful")) {
             username = attemptedUsername;
             LOGGED_USERS.put(username, clientSocket.toString());
             writer.println(response);
+            writer.println(END_OF_RESPONSE);
+            writer.flush();
             return true;
         }
 
         writer.println(response);
+        writer.println(END_OF_RESPONSE);
+        writer.flush();
         return false;
     }
 
@@ -93,7 +109,6 @@ public class ClientHandler implements Runnable {
     public static void removeLoggedInUser(String username) {
         if (username != null) {
             LOGGED_USERS.remove(username);
-            username = null;
         }
     }
 }

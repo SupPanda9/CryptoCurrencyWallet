@@ -9,6 +9,7 @@ import java.net.Socket;
 public class ClientMain {
     private static final String SERVER_HOST = "localhost";
     private static final int SERVER_PORT = 8080;
+    private static final String END_OF_RESPONSE = "<END_OF_RESPONSE>";
 
     public static void main(String[] args) {
         try (Socket socket = new Socket(SERVER_HOST, SERVER_PORT);
@@ -45,14 +46,19 @@ public class ClientMain {
                 break;
             }
 
-            System.out.println("Sending to server: " + input); // Лог
             writer.println(input);
             writer.flush();
 
-            String response = reader.readLine();
-            if (response != null) {
-                System.out.println("Server response: " + response);
+            StringBuilder responseBuilder = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.equals("<END_OF_RESPONSE>")) {
+                    break;
+                }
+                responseBuilder.append(line).append("\n");
             }
+            String response = responseBuilder.toString().strip();
+            System.out.println("Server response:\n" + response);
         }
     }
 }

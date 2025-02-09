@@ -1,26 +1,32 @@
 package bg.sofia.uni.fmi.mjt.crypto.wallet.server.commands;
 
+import bg.sofia.uni.fmi.mjt.crypto.wallet.server.services.CachedCoinAPIService;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
 public class CommandFactory {
-    private static final Map<String, Function<String[], Command>> COMMANDS = new HashMap<>();
+    private final Map<String, Function<String[], Command>> commands;
 
-    static {
-        COMMANDS.put("register", RegisterCommand::new);
-        COMMANDS.put("login", LoginCommand::new);
-        COMMANDS.put("logout", LogoutCommand::new);
-        /* COMMANDS.put("deposit", DepositMoneyCommand::new);
-        COMMANDS.put("buy", BuyCommand::new);
-        COMMANDS.put("sell", SellCommand::new);
-        COMMANDS.put("summary", GetWalletSummaryCommand::new);
-        COMMANDS.put("overall-summary", GetWalletOverallSummaryCommand::new);
-        */
+    public CommandFactory(CachedCoinAPIService cachedCoinAPIService) {
+        this.commands = new HashMap<>();
+
+        commands.put("register", RegisterCommand::new);
+        commands.put("login", LoginCommand::new);
+        commands.put("logout", LogoutCommand::new);
+        commands.put("list-offerings", _ -> new ListOfferingsCommand(cachedCoinAPIService));
     }
 
-    public static Command createCommand(String input, boolean isLoggedIn, String username) {
+    /* COMMANDS.put("deposit", DepositMoneyCommand::new);
+    COMMANDS.put("buy", BuyCommand::new);
+    COMMANDS.put("sell", SellCommand::new);
+    COMMANDS.put("summary", GetWalletSummaryCommand::new);
+    COMMANDS.put("overall-summary", GetWalletOverallSummaryCommand::new);
+    */
+
+    public Command createCommand(String input, boolean isLoggedIn, String username) {
         String[] tokens = input.strip().split("\\s+");
         String commandName = tokens[0].toLowerCase();
         String[] args = tokens.length > 1 ? Arrays.copyOfRange(tokens, 1, tokens.length) : new String[0];
@@ -52,8 +58,8 @@ public class CommandFactory {
             : "You are already logged in. Log out to log into another account.";
     }
 
-    private static Command getCommand(String commandName, String[] args) {
-        Function<String[], Command> commandFunction = COMMANDS.get(commandName);
+    private Command getCommand(String commandName, String[] args) {
+        Function<String[], Command> commandFunction = commands.get(commandName);
         if (commandFunction == null) {
             return () -> "Unknown command: " + commandName;
         }

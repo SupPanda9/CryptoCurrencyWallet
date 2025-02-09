@@ -1,6 +1,9 @@
 package bg.sofia.uni.fmi.mjt.crypto.wallet.server;
 
+import bg.sofia.uni.fmi.mjt.crypto.wallet.server.commands.CommandFactory;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.connection.ClientHandler;
+import bg.sofia.uni.fmi.mjt.crypto.wallet.server.services.CachedCoinAPIService;
+import bg.sofia.uni.fmi.mjt.crypto.wallet.server.services.CoinAPIService;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -14,6 +17,9 @@ public class ServerMain {
     private static volatile boolean running = true;
 
     public static void main(String[] args) {
+        CachedCoinAPIService cachedCoinAPIService = new CachedCoinAPIService(new CoinAPIService());
+        CommandFactory commandFactory = new CommandFactory(cachedCoinAPIService);
+
         try (ServerSocket serverSocket = new ServerSocket(PORT);
              ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
 
@@ -23,7 +29,7 @@ public class ServerMain {
                 try {
                     Socket clientSocket = serverSocket.accept();
                     System.out.println("New client connected: " + clientSocket.getInetAddress());
-                    executor.submit(new ClientHandler(clientSocket));
+                    executor.submit(new ClientHandler(clientSocket, commandFactory));
                 } catch (IOException e) {
                     if (running) {
                         System.err.println("Error accepting client connection: " + e.getMessage());
