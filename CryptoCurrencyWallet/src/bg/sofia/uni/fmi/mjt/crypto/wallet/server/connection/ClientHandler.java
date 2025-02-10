@@ -10,23 +10,28 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ClientHandler implements Runnable {
 
     private static final Map<String, String> LOGGED_USERS = new ConcurrentHashMap<>();
+    private static final Set<ClientHandler> ACTIVE_CLIENTS = ConcurrentHashMap.newKeySet();
     private final Socket clientSocket;
     private final CommandFactory commandFactory;
     private String username = null;
+    private String sessionId = null;
     private static final String END_OF_RESPONSE = "<END_OF_RESPONSE>";
 
     public ClientHandler(Socket clientSocket, CommandFactory commandFactory) {
         this.clientSocket = clientSocket;
         this.commandFactory = commandFactory;
+        ACTIVE_CLIENTS.add(this);
     }
 
     @Override
     public void run() {
+        sessionId = clientSocket.toString();
         System.out.println("Handling new client: " + clientSocket.getInetAddress());
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
@@ -38,7 +43,7 @@ public class ClientHandler implements Runnable {
         } catch (IOException e) {
             System.err.println("Client disconnected: " + clientSocket.getInetAddress());
         } finally {
-            removeLoggedInUser(username);
+            removeLoggedInUser(username, sessionId);
         }
     }
 
@@ -60,7 +65,7 @@ public class ClientHandler implements Runnable {
             if (!input.startsWith("login")) {
                 Command command = commandFactory.createCommand(input, isLoggedIn(), username);
                 String response = command.execute();
-                System.out.println("Sending response to client: \n" + response); // 🔍 Debug log
+                System.out.println("Sending response to client: \n" + response);
 
                 writer.println(response);
                 writer.println(END_OF_RESPONSE);
@@ -76,7 +81,6 @@ public class ClientHandler implements Runnable {
             writer.println("User is already logged in from another session.");
             writer.println(END_OF_RESPONSE);
             writer.flush();
-
             return false;
         }
 
@@ -85,7 +89,7 @@ public class ClientHandler implements Runnable {
 
         if (response.startsWith("Login successful")) {
             username = attemptedUsername;
-            LOGGED_USERS.put(username, clientSocket.toString());
+            LOGGED_USERS.put(username, sessionId);
             writer.println(response);
             writer.println(END_OF_RESPONSE);
             writer.flush();
@@ -106,9 +110,23 @@ public class ClientHandler implements Runnable {
         return LOGGED_USERS.containsKey(username);
     }
 
-    public static void removeLoggedInUser(String username) {
-        if (username != null) {
-            LOGGED_USERS.remove(username);
+    public static void removeLoggedInUser(String username, String sessionId) {
+        if (username != null && LOGGED_USERS.containsKey(username)) {
+            if (LOGGED_USERS.get(username).equals(sessionId)) {
+                LOGGED_USERS.remove(username);
+
+                for (ClientHandler handler : ACTIVE_CLIENTS) {
+                    if (handler.username != null && handler.username.equals(username) &&
+                        handler.sessionId.equals(sessionId)) {
+                        handler.username = null;
+                        break;
+                    }
+                }
+            }
         }
+    }
+
+    public static String getSessionIdForUser(String username) {
+        return LOGGED_USERS.get(username);
     }
 }

@@ -1,5 +1,6 @@
 package bg.sofia.uni.fmi.mjt.crypto.wallet.server.commands;
 
+import bg.sofia.uni.fmi.mjt.crypto.wallet.server.connection.ClientHandler;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.services.CachedCoinAPIService;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.services.WalletService;
 
@@ -10,15 +11,13 @@ import java.util.function.Function;
 
 public class CommandFactory {
     private final Map<String, Function<String[], Command>> commands;
-    private final WalletService walletService;
 
     public CommandFactory(CachedCoinAPIService cachedCoinAPIService, WalletService walletService) {
         this.commands = new HashMap<>();
-        this.walletService = walletService;
 
         commands.put("register", RegisterCommand::new);
         commands.put("login", LoginCommand::new);
-        commands.put("logout", LogoutCommand::new);
+        commands.put("logout", args -> new LogoutCommand(args[0], ClientHandler.getSessionIdForUser(args[0])));
         commands.put("list-offerings", _ -> new ListOfferingsCommand(cachedCoinAPIService));
         commands.put("deposit-money", args -> new DepositMoneyCommand(walletService, args));
         commands.put("buy", args -> new BuyCommand(walletService, cachedCoinAPIService, args));
@@ -49,7 +48,8 @@ public class CommandFactory {
         }
 
         if (isLoggedIn && commandName.equals("logout")) {
-            return new LogoutCommand(new String[]{username});
+            String sessionId = ClientHandler.getSessionIdForUser(username); // 🔥 Взимаме sessionId на потребителя
+            return new LogoutCommand(username, sessionId);
         }
 
         return getCommand(commandName, args, username);
