@@ -3,6 +3,7 @@ package bg.sofia.uni.fmi.mjt.crypto.wallet.server.commands;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.connection.ClientHandler;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.services.CachedCoinAPIService;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.services.WalletService;
+import bg.sofia.uni.fmi.mjt.crypto.wallet.server.utils.LoggerUtil;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -33,22 +34,25 @@ public class CommandFactory {
         String commandName = tokens[0].toLowerCase();
         String[] args = tokens.length > 1 ? Arrays.copyOfRange(tokens, 1, tokens.length) : new String[0];
 
-        System.out.println("input = " + commandName);
+        LoggerUtil.logInfo("Received input: " + input);
 
         if (commandName.equals("help")) {
             return new HelpCommand();
         }
 
         if (isLoggedIn && isRestrictedWhileLoggedIn(commandName)) {
+            LoggerUtil.logWarning("Attempted restricted command while logged in: " + commandName);
             return () -> getRestrictedMessage(commandName);
         }
 
         if (!isLoggedIn && isLoginRequired(commandName)) {
+            LoggerUtil.logWarning("Attempted command requiring login while not logged in: " + commandName);
             return () -> "You must be logged in to use this command!";
         }
 
         if (isLoggedIn && commandName.equals("logout")) {
-            String sessionId = ClientHandler.getSessionIdForUser(username); // 🔥 Взимаме sessionId на потребителя
+            String sessionId = ClientHandler.getSessionIdForUser(username);
+            LoggerUtil.logInfo("Logging out user: " + username);
             return new LogoutCommand(username, sessionId);
         }
 
@@ -71,12 +75,14 @@ public class CommandFactory {
 
     private Command getCommand(String commandName, String[] args, String username) {
         Function<String[], Command> commandFunction = commands.get(commandName);
+
         if (commandFunction == null) {
+            LoggerUtil.logWarning("Unknown command received: " + commandName);
             return () -> "Unknown command: " + commandName;
         }
 
         try {
-            // If the command needs a username, prepend it to args
+            // If the command needs a username, pre-pend it to args
             if (commandNeedsUsername(commandName)) {
                 String[] newArgs = new String[args.length + 1];
                 newArgs[0] = username;
@@ -86,8 +92,10 @@ public class CommandFactory {
 
             return commandFunction.apply(args);
         } catch (IllegalArgumentException e) {
-            return () -> e.getMessage();
+            LoggerUtil.logError("Invalid arguments for command: " + commandName, e);
+            return e::getMessage;
         } catch (Exception e) {
+            LoggerUtil.logError("Unexpected error while processing command: " + commandName, e);
             return () -> "An unexpected error occurred: " + e.getMessage();
         }
     }

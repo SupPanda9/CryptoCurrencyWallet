@@ -1,6 +1,7 @@
 package bg.sofia.uni.fmi.mjt.crypto.wallet.server.services;
 
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.models.CryptoOffering;
+import bg.sofia.uni.fmi.mjt.crypto.wallet.server.utils.LoggerUtil;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -18,14 +19,16 @@ public class CachedCoinAPIService {
     public CachedCoinAPIService(CoinAPIService coinAPIService) {
         this.coinAPIService = coinAPIService;
         this.lastFetchTime = Instant.EPOCH;
+        LoggerUtil.logInfo("Initialized CachedCoinAPIService");
     }
 
     public List<CryptoOffering> getCryptoOfferings() throws IOException {
         lock.readLock().lock();
         try {
             boolean validCache = isCacheValid();
-            System.out.println("Cache valid? " + validCache + " | Last fetch: " + lastFetchTime);
+            LoggerUtil.logInfo("Cache valid? " + validCache + " | Last fetch: " + lastFetchTime);
             if (validCache) {
+                LoggerUtil.logInfo("Returning cached offerings.");
                 return cachedOfferings;
             }
         } finally {
@@ -38,8 +41,10 @@ public class CachedCoinAPIService {
     private boolean isCacheValid() {
         lock.readLock().lock();
         try {
-            return cachedOfferings != null &&
+            boolean valid = cachedOfferings != null &&
                 Instant.now().toEpochMilli() - lastFetchTime.toEpochMilli() <= CACHE_EXPIRY_TIME_MS;
+            LoggerUtil.logInfo("Cache validation result: " + valid);
+            return valid;
         } finally {
             lock.readLock().unlock();
         }
@@ -48,21 +53,25 @@ public class CachedCoinAPIService {
     private List<CryptoOffering> refreshCache() throws IOException {
         lock.writeLock().lock();
         try {
-            System.out.println("Fetching fresh crypto offerings from CoinAPI...");
+            LoggerUtil.logInfo("Fetching fresh crypto offerings from CoinAPI...");
             try {
                 List<CryptoOffering> offerings = coinAPIService.fetchAllCryptoOfferings();
                 cachedOfferings = sortOfferingsByVolume(offerings);
                 lastFetchTime = Instant.now();
 
                 if (!cachedOfferings.isEmpty()) {
-                    System.out.println("Cached " + cachedOfferings.size() + " crypto offerings.");
+                    LoggerUtil.logInfo("Successfully cached " + cachedOfferings.size() + " crypto offerings.");
                 } else {
-                    System.out.println("ERROR: No offerings fetched!");
+                    LoggerUtil.logWarning("ERROR: No offerings fetched!");
                 }
                 return cachedOfferings;
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt(); // Restore the interrupted status
+                Thread.currentThread().interrupt();
+                LoggerUtil.logError("Thread interrupted while fetching crypto data", e);
                 throw new IOException("Thread interrupted while fetching crypto data", e);
+            } catch (IOException e) {
+                LoggerUtil.logError("Error fetching crypto data from CoinAPI", e);
+                throw e;
             }
         } finally {
             lock.writeLock().unlock();
@@ -70,25 +79,9 @@ public class CachedCoinAPIService {
     }
 
     private List<CryptoOffering> sortOfferingsByVolume(List<CryptoOffering> offerings) {
+        LoggerUtil.logInfo("Sorting crypto offerings by volume...");
         return offerings.stream()
             .sorted(Comparator.comparingDouble(CryptoOffering::volumeUsd).reversed())
             .toList();
-    }
-
-    public CryptoOffering getCryptoById(String assetId) throws IOException, InterruptedException {
-        lock.readLock().lock();
-        try {
-            if (cachedOfferings != null) {
-                return cachedOfferings.stream()
-                    .filter(o -> o.assetId().equalsIgnoreCase(assetId))
-                    .findFirst()
-                    .orElse(null);
-            }
-        } finally {
-            lock.readLock().unlock();
-        }
-
-        System.out.println("Crypto " + assetId + " not found in cache. Fetching from API...");
-        return coinAPIService.fetchCryptoById(assetId);
     }
 }

@@ -1,5 +1,7 @@
 package bg.sofia.uni.fmi.mjt.crypto.wallet.client;
 
+import bg.sofia.uni.fmi.mjt.crypto.wallet.server.utils.LoggerUtil;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -25,40 +27,52 @@ public class ClientMain {
             startClientInteraction(reader, writer, console);
 
         } catch (IOException e) {
+            LoggerUtil.logError("Error connecting to server", e);
             System.err.println("Error connecting to server: " + e.getMessage());
         } finally {
+            LoggerUtil.logInfo("Client terminated.");
             System.out.println("Client terminated.");
         }
     }
 
-    private static void startClientInteraction(BufferedReader reader, PrintWriter writer, BufferedReader console)
-        throws IOException {
-
+    private static void startClientInteraction(BufferedReader reader, PrintWriter writer, BufferedReader console) {
         System.out.println("Type 'exit' to disconnect.");
 
         String input;
-        while (true) {
-            System.out.print("> ");
-            input = console.readLine();
+        try {
+            while (true) {
+                System.out.print("> ");
+                input = console.readLine();
 
-            if (input == null || input.equalsIgnoreCase("exit")) {
-                System.out.println("Disconnecting from server...");
-                break;
-            }
-
-            writer.println(input);
-            writer.flush();
-
-            StringBuilder responseBuilder = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.equals("<END_OF_RESPONSE>")) {
+                if (input == null || input.equalsIgnoreCase("exit")) {
+                    LoggerUtil.logInfo("Client is disconnecting...");
+                    System.out.println("Disconnecting from server...");
                     break;
                 }
-                responseBuilder.append(line).append("\n");
+
+                writer.println(input);
+                writer.flush();
+                LoggerUtil.logInfo("Sent command to server: " + input);
+
+                String response = readServerResponse(reader);
+                System.out.println(response);
             }
-            String response = responseBuilder.toString().strip();
-            System.out.println("Server response:\n" + response);
+        } catch (IOException e) {
+            LoggerUtil.logError("Error during client-server interaction", e);
+            System.err.println("Error communicating with the server: " + e.getMessage());
         }
     }
+
+    private static String readServerResponse(BufferedReader reader) throws IOException {
+        StringBuilder responseBuilder = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            if (line.equals(END_OF_RESPONSE)) {
+                break;
+            }
+            responseBuilder.append(line).append("\n");
+        }
+        return responseBuilder.toString().strip();
+    }
+
 }

@@ -2,6 +2,7 @@ package bg.sofia.uni.fmi.mjt.crypto.wallet.server.connection;
 
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.commands.Command;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.commands.CommandFactory;
+import bg.sofia.uni.fmi.mjt.crypto.wallet.server.utils.LoggerUtil;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -27,12 +28,13 @@ public class ClientHandler implements Runnable {
         this.clientSocket = clientSocket;
         this.commandFactory = commandFactory;
         ACTIVE_CLIENTS.add(this);
+        LoggerUtil.logInfo("New client connected: " + clientSocket.getInetAddress());
     }
 
     @Override
     public void run() {
         sessionId = clientSocket.toString();
-        System.out.println("Handling new client: " + clientSocket.getInetAddress());
+        LoggerUtil.logInfo("Handling new client session: " + sessionId);
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
              PrintWriter writer = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream()), true)) {
@@ -41,9 +43,10 @@ public class ClientHandler implements Runnable {
             handleClientCommands(reader, writer);
 
         } catch (IOException e) {
-            System.err.println("Client disconnected: " + clientSocket.getInetAddress());
+            LoggerUtil.logError("Client communication error with session: " + sessionId, e);
         } finally {
             removeLoggedInUser(username, sessionId);
+            LoggerUtil.logInfo("Client session " + sessionId + " has been closed.");
         }
     }
 
@@ -51,10 +54,13 @@ public class ClientHandler implements Runnable {
         String input;
         while ((input = reader.readLine()) != null) {
             input = input.strip();
+            LoggerUtil.logInfo("Received command from client: " + input);
+
             if (input.equalsIgnoreCase("exit")) {
                 writer.println("Goodbye!");
                 writer.println(END_OF_RESPONSE);
                 writer.flush();
+                LoggerUtil.logInfo("Client " + sessionId + " exited the session.");
                 break;
             }
 
@@ -65,7 +71,7 @@ public class ClientHandler implements Runnable {
             if (!input.startsWith("login")) {
                 Command command = commandFactory.createCommand(input, isLoggedIn(), username);
                 String response = command.execute();
-                System.out.println("Sending response to client: \n" + response);
+                LoggerUtil.logInfo("Sending response to client: \n" + response);
 
                 writer.println(response);
                 writer.println(END_OF_RESPONSE);
@@ -76,11 +82,12 @@ public class ClientHandler implements Runnable {
 
     private boolean handleLoginCommand(String input, PrintWriter writer) {
         String attemptedUsername = input.split("\\s+")[1];
-
+        LoggerUtil.logInfo("Attempting to log in with username: " + attemptedUsername);
         if (LOGGED_USERS.containsKey(attemptedUsername)) {
             writer.println("User is already logged in from another session.");
             writer.println(END_OF_RESPONSE);
             writer.flush();
+            LoggerUtil.logWarning("Login failed for user " + attemptedUsername + ": already logged in.");
             return false;
         }
 
@@ -93,21 +100,19 @@ public class ClientHandler implements Runnable {
             writer.println(response);
             writer.println(END_OF_RESPONSE);
             writer.flush();
+            LoggerUtil.logInfo("Login successful for user: " + username);
             return true;
         }
 
         writer.println(response);
         writer.println(END_OF_RESPONSE);
         writer.flush();
+        LoggerUtil.logWarning("Login failed for user " + attemptedUsername + ": " + response);
         return false;
     }
 
     private boolean isLoggedIn() {
         return username != null && LOGGED_USERS.containsKey(username);
-    }
-
-    public static boolean isUserLoggedIn(String username) {
-        return LOGGED_USERS.containsKey(username);
     }
 
     public static void removeLoggedInUser(String username, String sessionId) {
@@ -122,6 +127,7 @@ public class ClientHandler implements Runnable {
                         break;
                     }
                 }
+                LoggerUtil.logInfo("User " + username + " logged out.");
             }
         }
     }

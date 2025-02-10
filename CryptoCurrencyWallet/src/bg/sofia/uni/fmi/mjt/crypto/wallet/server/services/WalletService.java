@@ -5,6 +5,7 @@ import bg.sofia.uni.fmi.mjt.crypto.wallet.server.models.TransactionType;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.models.User;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.models.Wallet;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.storage.Storage;
+import bg.sofia.uni.fmi.mjt.crypto.wallet.server.utils.LoggerUtil;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 public class WalletService {
+
     private static WalletService instance;
     private final Map<String, User> users;
 
@@ -29,34 +31,69 @@ public class WalletService {
         return instance;
     }
 
+    private boolean isUserValid(String username) {
+        if (users.get(username) == null) {
+            LoggerUtil.logWarning("User not found: " + username);
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isAmountValid(double amount) {
+        if (amount <= 0) {
+            LoggerUtil.logWarning("Invalid amount: " + amount);
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isPricePerUnitValid(double pricePerUnit) {
+        if (pricePerUnit <= 0) {
+            LoggerUtil.logWarning("Invalid price per unit: " + pricePerUnit);
+            return false;
+        }
+        return true;
+    }
+
+    private void updateWallet(User user, Map<String, Double> newCryptoHoldings,
+                              List<Transaction> updatedTransactions, double newBalance) {
+        Wallet newWallet = new Wallet(newBalance, newCryptoHoldings, updatedTransactions);
+        users.put(user.username(), new User(user.username(), user.password(), newWallet));
+        Storage.saveUsers(users);
+    }
+
+    private void logTransactionSuccess(String transactionType, String username, String assetId, double amount) {
+        LoggerUtil.logInfo(
+            String.format("%s successful for user %s: %.6f %s", transactionType, username, amount, assetId));
+    }
+
     public synchronized boolean depositMoney(String username, double amount) {
-        User user = users.get(username);
-        if (user == null || amount <= 0) {
-            return false; // User not found or invalid amount
+        if (!isUserValid(username) || !isAmountValid(amount)) {
+            return false;
         }
 
+        User user = users.get(username);
         Wallet oldWallet = user.wallet();
         List<Transaction> updatedTransactions = new ArrayList<>(oldWallet.transactionHistory());
         updatedTransactions.add(new Transaction(TransactionType.DEPOSIT, amount));
 
-        Wallet newWallet = new Wallet(oldWallet.balance() + amount, oldWallet.cryptoHoldings(), updatedTransactions);
-
-        users.put(username, new User(user.username(), user.password(), newWallet));
-        Storage.saveUsers(users);
+        updateWallet(user, oldWallet.cryptoHoldings(), updatedTransactions, oldWallet.balance() + amount);
+        logTransactionSuccess("Deposit", username, "", amount);
         return true;
     }
 
     public synchronized boolean buyCrypto(String username, String assetId, double amount, double pricePerUnit) {
-        User user = users.get(username);
-        if (user == null || amount <= 0 || pricePerUnit <= 0) {
+        if (!isUserValid(username) || !isAmountValid(amount) || !isPricePerUnitValid(pricePerUnit)) {
             return false;
         }
 
-        double totalCost = amount * pricePerUnit;
+        User user = users.get(username);
         Wallet oldWallet = user.wallet();
+        double totalCost = amount * pricePerUnit;
 
         if (oldWallet.balance() < totalCost) {
-            return false; // Not enough balance
+            LoggerUtil.logWarning("Insufficient balance for user " + username + " to buy " + assetId);
+            return false;
         }
 
         Map<String, Double> newCryptoHoldings = new HashMap<>(oldWallet.cryptoHoldings());
@@ -65,47 +102,33 @@ public class WalletService {
         List<Transaction> updatedTransactions = new ArrayList<>(oldWallet.transactionHistory());
         updatedTransactions.add(new Transaction(TransactionType.BUY, assetId, totalCost, amount, pricePerUnit));
 
-        Wallet newWallet = new Wallet(oldWallet.balance() - totalCost, newCryptoHoldings, updatedTransactions);
-
-        users.put(username, new User(user.username(), user.password(), newWallet));
-        Storage.saveUsers(users);
+        updateWallet(user, newCryptoHoldings, updatedTransactions, oldWallet.balance() - totalCost);
+        logTransactionSuccess("Buy", username, assetId, amount);
         return true;
     }
 
     public synchronized boolean sellCrypto(String username, String assetId, double pricePerUnit) {
-        User user = users.get(username);
-        if (user == null || pricePerUnit <= 0) {
+        if (!isUserValid(username) || !isPricePerUnitValid(pricePerUnit)) {
             return false;
         }
 
+        User user = users.get(username);
         Wallet oldWallet = user.wallet();
         double ownedAmount = oldWallet.cryptoHoldings().getOrDefault(assetId, 0.0);
         if (ownedAmount == 0) {
-            return false; // No crypto to sell
+            LoggerUtil.logWarning("No crypto to sell for user " + username + ": " + assetId);
+            return false;
         }
 
         double totalSaleValue = ownedAmount * pricePerUnit;
         Map<String, Double> newCryptoHoldings = new HashMap<>(oldWallet.cryptoHoldings());
-        newCryptoHoldings.remove(assetId); // Selling everything
-
-        double totalInvestmentReduction = calculateInvestmentReduction(oldWallet, assetId);
+        newCryptoHoldings.remove(assetId);
         List<Transaction> updatedTransactions =
             updateTransactionHistory(oldWallet, assetId, totalSaleValue, ownedAmount, pricePerUnit);
 
-        Wallet newWallet = new Wallet(oldWallet.balance() + totalSaleValue, newCryptoHoldings, updatedTransactions);
-        users.put(username, new User(user.username(), user.password(), newWallet));
-        Storage.saveUsers(users);
+        updateWallet(user, newCryptoHoldings, updatedTransactions, oldWallet.balance() + totalSaleValue);
+        logTransactionSuccess("Sell", username, assetId, ownedAmount);
         return true;
-    }
-
-    private double calculateInvestmentReduction(Wallet wallet, String assetId) {
-        double totalInvestmentReduction = 0;
-        for (Transaction t : wallet.transactionHistory()) {
-            if (t.type() == TransactionType.BUY && t.assetId().equals(assetId)) {
-                totalInvestmentReduction += t.amount();
-            }
-        }
-        return totalInvestmentReduction;
     }
 
     private List<Transaction> updateTransactionHistory(Wallet wallet, String assetId, double totalSaleValue,
@@ -116,17 +139,27 @@ public class WalletService {
         return updatedTransactions;
     }
 
+    /*private double calculateInvestmentReduction(Wallet wallet, String assetId) {
+        double totalInvestmentReduction = 0;
+        for (Transaction t : wallet.transactionHistory()) {
+            if (t.type() == TransactionType.BUY && t.assetId().equals(assetId)) {
+                totalInvestmentReduction += t.amount();
+            }
+        }
+        return totalInvestmentReduction;
+    }*/
+
     public synchronized String getWalletSummary(String username) {
-        User user = users.get(username);
-        if (user == null) {
+        if (!isUserValid(username)) {
             return "User not found.";
         }
 
+        User user = users.get(username);
         Wallet wallet = user.wallet();
-
-        String transactionsFormatted = wallet.transactionHistory().stream()
-            .map(this::formatTransaction)
-            .reduce("", (a, b) -> a + "\n" + b);
+        String transactionsFormatted =
+            wallet.transactionHistory().stream()
+                .map(this::formatTransaction)
+                .reduce("", (a, b) -> a + "\n" + b);
 
         return String.format(
             "Balance: $%.2f\nCrypto Holdings: %s\nTransaction History:\n%s",
@@ -137,6 +170,7 @@ public class WalletService {
     public synchronized String getWalletOverallSummary(String username, Map<String, Double> currentPrices) {
         User user = users.get(username);
         if (user == null) {
+            LoggerUtil.logWarning("User not found: " + username);
             return "User not found.";
         }
 
@@ -151,10 +185,8 @@ public class WalletService {
     }
 
     private double calculateTotalInvestment(Wallet wallet) {
-        return wallet.transactionHistory().stream()
-            .filter(t -> t.type() == TransactionType.BUY)
-            .mapToDouble(Transaction::amount)
-            .sum();
+        return wallet.transactionHistory().stream().filter(t -> t.type() == TransactionType.BUY)
+            .mapToDouble(Transaction::amount).sum();
     }
 
     private double calculateTotalSellInvestment(Wallet wallet) {
@@ -187,33 +219,28 @@ public class WalletService {
 
     private double calculateCurrentPortfolioValue(Wallet wallet, Map<String, Double> currentPrices) {
         return wallet.cryptoHoldings().entrySet().stream()
-            .mapToDouble(entry -> entry.getValue() * currentPrices.getOrDefault(entry.getKey(), 0.0))
-            .sum();
+            .mapToDouble(entry -> entry.getValue() * currentPrices.getOrDefault(entry.getKey(), 0.0)).sum();
     }
 
     private String formatWalletSummary(double totalInvestment, double currentPortfolioValue, double profitLoss) {
-        return "Total Investment: $" + totalInvestment + "\n" +
-            "Current Portfolio Value: $" + currentPortfolioValue + "\n" +
-            "Profit/Loss: $" + profitLoss;
+        return "Total Investment: $" + totalInvestment + "\n" + "Current Portfolio Value: $" + currentPortfolioValue +
+            "\n" + "Profit/Loss: $" + profitLoss;
     }
 
     private String formatTransaction(Transaction t) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-            .withZone(ZoneId.systemDefault());
+        DateTimeFormatter formatter =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
         String timestamp = formatter.format(Instant.ofEpochSecond(t.timestamp()));
 
-        if (t.type() == TransactionType.DEPOSIT) {
-            return String.format("[DEPOSIT] $%.2f (Timestamp: %s)", t.amount(), timestamp);
-        } else if (t.type() == TransactionType.BUY) {
-            return String.format("[BUY] %.6f %s for $%.2f at $%.2f per unit (Timestamp: %s)",
+        return switch (t.type()) {
+            case DEPOSIT -> String.format("[DEPOSIT] $%.2f (Timestamp: %s)", t.amount(), timestamp);
+            case BUY -> String.format("[BUY] %.6f %s for $%.2f at $%.2f per unit (Timestamp: %s)",
                 t.cryptoQuantity(), t.assetId(), t.amount(), t.priceAtTransaction(), timestamp);
-        } else if (t.type() == TransactionType.SELL) {
-            return String.format("[SELL] %.6f %s for $%.2f at $%.2f per unit (Timestamp: %s)",
+            case SELL -> String.format("[SELL] %.6f %s for $%.2f at $%.2f per unit (Timestamp: %s)",
                 t.cryptoQuantity(), t.assetId(), t.amount(), t.priceAtTransaction(), timestamp);
-        }
-
-        return "[UNKNOWN TRANSACTION]";
+            default -> "[UNKNOWN TRANSACTION]";
+        };
     }
 
 }

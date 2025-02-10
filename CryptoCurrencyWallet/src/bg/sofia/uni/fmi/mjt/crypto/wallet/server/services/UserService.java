@@ -3,6 +3,7 @@ package bg.sofia.uni.fmi.mjt.crypto.wallet.server.services;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.models.User;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.models.Wallet;
 import bg.sofia.uni.fmi.mjt.crypto.wallet.server.storage.Storage;
+import bg.sofia.uni.fmi.mjt.crypto.wallet.server.utils.LoggerUtil;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -29,6 +30,7 @@ public class UserService {
 
     public synchronized boolean register(String username, String password) {
         if (users.containsKey(username)) {
+            LoggerUtil.logWarning("Registration failed: User already exists with username: " + username);
             return false;
         }
 
@@ -36,18 +38,27 @@ public class UserService {
         Wallet emptyWallet = new Wallet(0.0, new HashMap<>(), new ArrayList<>());
 
         users.put(username, new User(username, hashedPassword, emptyWallet));
-        System.out.println("Saving new user: " + username); // 🔍 Debug log
+        LoggerUtil.logInfo("New user registered: " + username);
         Storage.saveUsers(users);
         return true;
     }
 
     public synchronized boolean login(String username, String password) {
         if (!users.containsKey(username)) {
+            LoggerUtil.logWarning("Login failed: User not found: " + username);
             return false;
         }
 
         User user = users.get(username);
-        return user.password().equals(hashPassword(password));
+        boolean isValid = user.password().equals(hashPassword(password));
+
+        if (isValid) {
+            LoggerUtil.logInfo("User logged in successfully: " + username);
+        } else {
+            LoggerUtil.logWarning("Login failed: Incorrect password for user: " + username);
+        }
+
+        return isValid;
     }
 
     private String hashPassword(String password) {
