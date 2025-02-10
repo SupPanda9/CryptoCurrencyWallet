@@ -43,7 +43,6 @@ public class LoggerUtil {
         LOGGER.log(Level.INFO, message);
     }
 
-    // Затваряме лог обработчиците при затваряне на ресурса
     public static void close() {
         if (fileHandler != null) {
             fileHandler.close();

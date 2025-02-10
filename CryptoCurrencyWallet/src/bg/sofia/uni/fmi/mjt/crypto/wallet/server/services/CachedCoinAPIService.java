@@ -84,4 +84,8 @@ public class CachedCoinAPIService {
             .sorted(Comparator.comparingDouble(CryptoOffering::volumeUsd).reversed())
             .toList();
     }
+
+    public void setLastFetchTimeForTesting(Instant lastFetchTime) {
+        this.lastFetchTime = lastFetchTime;
+    }
 }

@@ -22,6 +22,19 @@ public class LoginCommand implements Command {
         LoggerUtil.logInfo("Login attempt for username: " + username);
     }
 
+    public LoginCommand(String[] args, UserService userService) {
+        if (args.length < ARGS_NUM) {
+            LoggerUtil.logWarning("Login command usage error. Missing arguments: login <username> <password>");
+            throw new IllegalArgumentException("Usage: login <username> <password>");
+        }
+
+        this.userService = userService;
+        this.username = args[0];
+        this.password = args[1];
+
+        LoggerUtil.logInfo("Login attempt for username: " + username);
+    }
+
     @Override
     public String execute() {
         boolean success = userService.login(username, password);

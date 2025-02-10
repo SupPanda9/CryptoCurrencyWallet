@@ -19,7 +19,8 @@ public class GetWalletOverallSummaryCommand implements Command {
                                           CachedCoinAPIService cachedCoinAPIService) {
         if (args.length < ARGS_NUM) {
             LoggerUtil.logWarning(
-                "Get-wallet-overall-summary command usage error. Missing arguments: get-wallet-overall-summary <username>");
+                "Get-wallet-overall-summary command usage error. " +
+                    "Missing arguments: get-wallet-overall-summary <username>");
             throw new IllegalArgumentException("Usage: get-wallet-overall-summary <username>");
         }
 
@@ -31,14 +32,14 @@ public class GetWalletOverallSummaryCommand implements Command {
     @Override
     public String execute() {
         try {
-            Map<String, Double> currentPrices = cachedCoinAPIService.getCryptoOfferings()
-                .stream()
+            Map<String, Double> currentPrices = cachedCoinAPIService.getCryptoOfferings().stream()
                 .collect(Collectors.toMap(CryptoOffering::assetId, CryptoOffering::priceUsd));
 
             LoggerUtil.logInfo("Successfully fetched current prices for cryptocurrencies.");
 
             String overallSummary = walletService.getWalletOverallSummary(username, currentPrices);
-            LoggerUtil.logInfo("Successfully fetched overall wallet summary for user: " + username); // Логваме успешния резултат
+            LoggerUtil.logInfo(
+                "Successfully fetched overall wallet summary for user: " + username);
             return overallSummary;
         } catch (IOException e) {
             LoggerUtil.logError("Failed to fetch current prices for cryptocurrencies: " + e.getMessage(), e);

@@ -93,7 +93,7 @@ public class CommandFactory {
             return commandFunction.apply(args);
         } catch (IllegalArgumentException e) {
             LoggerUtil.logError("Invalid arguments for command: " + commandName, e);
-            return e::getMessage;
+            return () -> "Invalid arguments for command: " + commandName + ". " + e.getMessage();
         } catch (Exception e) {
             LoggerUtil.logError("Unexpected error while processing command: " + commandName, e);
             return () -> "An unexpected error occurred: " + e.getMessage();

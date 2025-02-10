@@ -10,7 +10,8 @@ public class GetWalletSummaryCommand implements Command {
 
     public GetWalletSummaryCommand(WalletService walletService, String[] args) {
         if (args.length < ARGS_NUM) {
-            LoggerUtil.logWarning("Get-wallet-summary command usage error. Missing argument: get-wallet-summary <username>");
+            LoggerUtil.logWarning(
+                "Get-wallet-summary command usage error. Missing argument: get-wallet-summary <username>");
             throw new IllegalArgumentException("Usage: get-wallet-summary <username>");
         }
 

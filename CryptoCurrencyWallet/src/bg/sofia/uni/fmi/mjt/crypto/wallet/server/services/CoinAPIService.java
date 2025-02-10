@@ -20,14 +20,23 @@ public class CoinAPIService {
     private static final String API_URL = "https://rest.coinapi.io/v1/assets";
     private static final String API_KEY = Config.get("COIN_API_KEY");
     private static final Gson GSON = new Gson();
-    private static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
     private static final int HTTP_OK = 200;
     public static final int UNAUTHORIZED_API_CODE = 401;
     public static final int TOO_MANY_REQUESTS = 429;
 
+    private final HttpClient httpClient ;
+
+    public CoinAPIService() {
+        this.httpClient = HttpClient.newHttpClient();
+    }
+
+    public CoinAPIService(HttpClient httpClient) {
+        this.httpClient = httpClient;
+    }
+
     public List<CryptoOffering> fetchAllCryptoOfferings() throws IOException, InterruptedException {
         LoggerUtil.logInfo("Sending request to CoinAPI...");
-
+        validateApiKey();
         HttpRequest request = HttpRequest.newBuilder().uri(URI.create(API_URL))
             .header("X-CoinAPI-Key", API_KEY)
             .header("Accept", "application/json")
@@ -35,7 +44,7 @@ public class CoinAPIService {
 
         HttpResponse<String> response;
         try {
-            response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         } catch (IOException | InterruptedException e) {
             LoggerUtil.logError("Error sending request to CoinAPI", e);
             throw e;
@@ -54,6 +63,13 @@ public class CoinAPIService {
         }
 
         return parseCryptoOfferings(response.body());
+    }
+
+    private void validateApiKey() throws IOException {
+        String apiKey = Config.get("COIN_API_KEY");
+        if (apiKey == null || apiKey.isEmpty()) {
+            throw new IOException("API key is invalid or missing.");
+        }
     }
 
     private List<CryptoOffering> parseCryptoOfferings(String jsonResponse) {

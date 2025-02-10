@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.Map;
 
 public class BuyCommand implements Command {
+
     public static final int ARGS_NUM = 3;
     private final WalletService walletService;
     private final CachedCoinAPIService cachedCoinAPIService;
@@ -80,4 +81,5 @@ public class BuyCommand implements Command {
             return 0;
         }
     }
+
 }

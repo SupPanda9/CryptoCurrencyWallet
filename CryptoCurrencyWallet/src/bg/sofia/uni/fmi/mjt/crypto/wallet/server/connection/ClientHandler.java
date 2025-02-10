@@ -91,7 +91,7 @@ public class ClientHandler implements Runnable {
             return false;
         }
 
-        Command command = commandFactory.createCommand(input, isLoggedIn(), username);
+        Command command = commandFactory.createCommand(input, isLoggedIn(), attemptedUsername);
         String response = command.execute();
 
         if (response.startsWith("Login successful")) {
@@ -130,6 +130,10 @@ public class ClientHandler implements Runnable {
                 LoggerUtil.logInfo("User " + username + " logged out.");
             }
         }
+    }
+
+    public static void addLoggedInUser(String username, String sessionId) {
+        LOGGED_USERS.put(username, sessionId);
     }
 
     public static String getSessionIdForUser(String username) {

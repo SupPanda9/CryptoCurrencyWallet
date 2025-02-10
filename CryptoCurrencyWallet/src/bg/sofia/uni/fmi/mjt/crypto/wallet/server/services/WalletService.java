@@ -18,10 +18,14 @@ import java.util.Map;
 public class WalletService {
 
     private static WalletService instance;
-    private final Map<String, User> users;
+    private Map<String, User> users;
 
     private WalletService() {
         this.users = Storage.loadUsers();
+    }
+
+    public void setUsers(Map<String, User> users) {
+        this.users = users;
     }
 
     public static synchronized WalletService getInstance() {
