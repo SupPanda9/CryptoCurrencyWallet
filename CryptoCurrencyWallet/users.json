@@ -3,7 +3,7 @@
     "username": "niki",
     "password": "l1ApGblBdl29C+pMZo8IgsmpJT9cC1xfb+Os4YW7Rco\u003d",
     "wallet": {
-      "balance": 1.0002542895484458E8,
+      "balance": 1.0003542895484458E8,
       "cryptoHoldings": {},
       "transactionHistory": [
         {
@@ -51,6 +51,89 @@
           "cryptoQuantity": 104.02208970275697,
           "priceAtTransaction": 96371.1552372216,
           "timestamp": 1739134196
+        },
+        {
+          "type": "DEPOSIT",
+          "amount": 10000.0,
+          "cryptoQuantity": 0.0,
+          "priceAtTransaction": 0.0,
+          "timestamp": 1739265449
+        }
+      ]
+    }
+  },
+  "java": {
+    "username": "java",
+    "password": "OKCWOmNksJrYZ6qaZsbQCWc8IeGCAVRh2iNuw2GHf3c\u003d",
+    "wallet": {
+      "balance": 50000.0,
+      "cryptoHoldings": {
+        "USDT": 49992.41307649487
+      },
+      "transactionHistory": [
+        {
+          "type": "DEPOSIT",
+          "amount": 100000.0,
+          "cryptoQuantity": 0.0,
+          "priceAtTransaction": 0.0,
+          "timestamp": 1739256634
+        },
+        {
+          "type": "BUY",
+          "assetId": "USDT",
+          "amount": 50000.0,
+          "cryptoQuantity": 49992.41307649487,
+          "priceAtTransaction": 1.00015176149816,
+          "timestamp": 1739256718
+        },
+        {
+          "type": "BUY",
+          "assetId": "ETH",
+          "amount": 20000.0,
+          "cryptoQuantity": 7.352209462217812,
+          "priceAtTransaction": 2720.27070267486,
+          "timestamp": 1739256747
+        },
+        {
+          "type": "SELL",
+          "assetId": "ETH",
+          "amount": 20000.0,
+          "cryptoQuantity": 7.352209462217812,
+          "priceAtTransaction": 2720.27070267486,
+          "timestamp": 1739256812
+        }
+      ]
+    }
+  },
+  "user": {
+    "username": "user",
+    "password": "XohImNooBHFR0OVvjcYpJ3NgPQ1qq73WKhHvch0VQtg\u003d",
+    "wallet": {
+      "balance": 1000000.0,
+      "cryptoHoldings": {},
+      "transactionHistory": [
+        {
+          "type": "DEPOSIT",
+          "amount": 1000000.0,
+          "cryptoQuantity": 0.0,
+          "priceAtTransaction": 0.0,
+          "timestamp": 1739264851
+        },
+        {
+          "type": "BUY",
+          "assetId": "BTC",
+          "amount": 500.0,
+          "cryptoQuantity": 0.005085881129751558,
+          "priceAtTransaction": 98311.3814979047,
+          "timestamp": 1739264889
+        },
+        {
+          "type": "SELL",
+          "assetId": "BTC",
+          "amount": 500.0,
+          "cryptoQuantity": 0.005085881129751558,
+          "priceAtTransaction": 98311.3814979047,
+          "timestamp": 1739264922
         }
       ]
     }
